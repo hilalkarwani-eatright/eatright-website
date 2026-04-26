@@ -1853,7 +1853,8 @@
 
 <script>
 (function(){
-  var OPENAI_KEY = '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';
+  // Key lives in Cloudflare Worker — safe to push to GitHub
+  var WORKER_URL = 'https://eatright-chatbot.hilalkarwani.workers.dev';
   var SHEETS_URL = 'https://script.google.com/macros/s/AKfycbybzbXV-Ls_Lc1e8sX9-fMqki33biiEdl0-IPv8gWL-kV8ZHmQ1-4a_J2g5Mg4iz5aW/exec';
 
   var MENU = [
@@ -1955,23 +1956,19 @@
     var moodCategory=moodMap[erAnswers.mood]||'any';
     var menuToUse=moodCategory==='any'?MENU:MENU.filter(function(i){return i.category===moodCategory;});
 
-    var prompt='You are the Eat Right menu assistant. Recommend exactly ONE menu item.\n\n'+
-      'RULES: Customer mood is "'+erAnswers.mood+'" — ONLY recommend from category: '+moodCategory+'\n'+
-      'Goal: '+erAnswers.goal+' | Dietary: '+erAnswers.dietary+'\n\n'+
-      'Available items:\n'+JSON.stringify(menuToUse)+'\n\n'+
-      'Reply in 2 sentences max. Start with item name. Mention the key macro for their goal.';
-
     try{
-      var res=await fetch('https://api.openai.com/v1/chat/completions',{
+      var res=await fetch(WORKER_URL,{
         method:'POST',
-        headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
-        body:JSON.stringify({model:'gpt-4o-mini',max_tokens:100,messages:[{role:'user',content:prompt}]})
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({mood:erAnswers.mood,goal:erAnswers.goal,dietary:erAnswers.dietary,menu:menuToUse})
       });
       var data=await res.json();
       typingEl.remove();
-      var rec=data.choices&&data.choices[0]?data.choices[0].message.content:fallbackRec();
-      erMsg(rec,false);
-    }catch(e){typingEl.remove();erMsg(fallbackRec(),false);}
+      erMsg(data.recommendation||fallbackRec(),false);
+    }catch(e){
+      typingEl.remove();
+      erMsg(fallbackRec(),false);
+    }
 
     setTimeout(function(){
       erMsg("You're on the early access list — we'll be in touch before launch!",false);

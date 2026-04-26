@@ -1831,5 +1831,181 @@
 
   <!-- Brevo form handled via direct POST -->
 
+
+<!-- ── EAT RIGHT CHATBOT WIDGET ── -->
+<div id="er-chat-bubble" style="position:fixed;bottom:24px;right:24px;z-index:9998;">
+  <div id="er-chat-box" style="display:none;width:340px;border-radius:4px;overflow:hidden;box-shadow:0 8px 40px rgba(0,0,0,0.35);font-family:'DM Sans',sans-serif;background:#1A1208;border:1px solid rgba(255,255,255,0.08);">
+    <div style="background:#C8392B;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:#F5F0E8;letter-spacing:0.08em;">EAT RIGHT</div>
+        <div style="font-size:11px;color:rgba(245,240,232,0.7);">Find your perfect meal</div>
+      </div>
+      <button onclick="toggleErChat()" style="background:transparent;border:none;color:rgba(245,240,232,0.7);font-size:18px;cursor:pointer;line-height:1;">✕</button>
+    </div>
+    <div id="er-messages" style="padding:16px;min-height:260px;max-height:340px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;"></div>
+    <div style="border-top:1px solid rgba(255,255,255,0.08);padding:10px 12px;display:flex;gap:8px;">
+      <input id="er-input" placeholder="Or type here..." style="flex:1;border:1px solid rgba(255,255,255,0.15);border-radius:2px;padding:8px 12px;font-size:13px;font-family:'DM Sans',sans-serif;background:rgba(255,255,255,0.06);color:#F5F0E8;outline:none;" onkeydown="if(event.key==='Enter')erSend()"/>
+      <button onclick="erSend()" style="background:#C8392B;color:#F5F0E8;border:none;border-radius:2px;width:36px;height:36px;cursor:pointer;font-size:16px;">↑</button>
+    </div>
+  </div>
+  <button onclick="toggleErChat()" id="er-bubble-btn" style="width:56px;height:56px;border-radius:50%;background:#C8392B;color:#F5F0E8;border:none;cursor:pointer;box-shadow:0 4px 20px rgba(200,57,43,0.4);font-size:24px;animation:erBubblePulse 2.5s ease-in-out infinite;">💬</button>
+</div>
+
+<script>
+(function(){
+  var OPENAI_KEY = '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';
+  var SHEETS_URL = 'https://script.google.com/macros/s/AKfycbybzbXV-Ls_Lc1e8sX9-fMqki33biiEdl0-IPv8gWL-kV8ZHmQ1-4a_J2g5Mg4iz5aW/exec';
+
+  var MENU = [
+    {name:'The Big Stack',cal:300,protein:42,category:'main',desc:'300 cal, 42g protein — our take on the Big Mac'},
+    {name:'The Zinger',cal:582,protein:78,category:'main',desc:'582 cal, 78g protein — crispy chicken, more protein than KFC'},
+    {name:'The Five Guys Melt',cal:575,protein:57,category:'main',desc:'575 cal, 57g protein — double smash patties, caramelised onions'},
+    {name:'Honey Chipotle Quesadilla',cal:400,protein:60,category:'main',desc:'400 cal, 60g protein — smoky chipotle chicken'},
+    {name:'Shawarma Loaded Fries',cal:562,protein:53,category:'main',desc:'562 cal, 53g protein — loaded fries with marinated chicken'},
+    {name:'Creamy Chipotle Burrito',cal:363,protein:37,category:'main',desc:'363 cal, 37g protein — lean beef, smoky crema'},
+    {name:'Buffalo Chicken Hot Pockets',cal:425,protein:50,category:'snack',desc:'425 cal, 50g protein — Greek yogurt dough, buffalo chicken'},
+    {name:'Cheesy Beef Potato Pockets',cal:296,protein:24,category:'snack',desc:'296 cal, 24g protein — crispy potato pockets'},
+    {name:'Protein Brownies',cal:99,protein:12,category:'dessert',desc:'99 cal, 12g protein — fudgy protein brownie'},
+    {name:'Protein Donuts',cal:131,protein:13,category:'dessert',desc:'131 cal, 13g protein — baked vanilla glazed donuts'},
+    {name:'Healthy Magnum',cal:180,protein:4,category:'dessert',desc:'180 cal, dairy-free dark chocolate ice cream'},
+    {name:'Almond Snickers Bar',cal:160,protein:4,category:'dessert',desc:'160 cal, no added sugar chocolate bar'}
+  ];
+
+  var erStep=0,erAnswers={},erOpen=false;
+  var erQs=[
+    {key:'goal',text:"Hey! What's your main goal right now?",options:['Lose weight','Gain muscle','Eat healthier','Love good food']},
+    {key:'frequency',text:'How often do you order food per week?',options:['1-2x','3-4x','5x+','Rarely']},
+    {key:'dietary',text:'Any dietary requirements?',options:['None','Halal','Dairy-free','Gluten-free']},
+    {key:'mood',text:'What are you in the mood for?',options:['Something filling','Light snack','Dessert','Anything!']}
+  ];
+
+  window.toggleErChat=function(){
+    var box=document.getElementById('er-chat-box');
+    erOpen=!erOpen;
+    box.style.display=erOpen?'block':'none';
+    if(erOpen&&erStep===0)erAsk();
+  };
+
+  function erMsg(text,isUser){
+    var msgs=document.getElementById('er-messages');
+    var d=document.createElement('div');
+    d.style.cssText='max-width:88%;font-size:13px;line-height:1.55;padding:10px 13px;font-family:"DM Sans",sans-serif;'+
+      (isUser
+        ?'align-self:flex-end;background:#C8392B;color:#F5F0E8;border-radius:2px 0 2px 2px;'
+        :'align-self:flex-start;background:rgba(255,255,255,0.07);color:#F5F0E8;border-radius:0 2px 2px 2px;border:1px solid rgba(255,255,255,0.08);');
+    d.textContent=text;msgs.appendChild(d);msgs.scrollTop=msgs.scrollHeight;
+  }
+
+  function erOpts(opts,key){
+    var msgs=document.getElementById('er-messages');
+    var wrap=document.createElement('div');
+    wrap.style.cssText='display:flex;flex-wrap:wrap;gap:6px;align-self:flex-start;max-width:95%;';
+    opts.forEach(function(o){
+      var b=document.createElement('button');
+      b.textContent=o;
+      b.style.cssText='font-size:12px;font-family:"DM Sans",sans-serif;padding:6px 11px;border-radius:2px;border:1px solid rgba(200,57,43,0.6);background:transparent;color:#F5F0E8;cursor:pointer;';
+      b.onmouseover=function(){this.style.background='rgba(200,57,43,0.3)';};
+      b.onmouseout=function(){this.style.background='transparent';};
+      b.onclick=function(){
+        erAnswers[key]=o;erMsg(o,true);
+        wrap.querySelectorAll('button').forEach(function(btn){btn.disabled=true;btn.style.opacity='0.4';});
+        b.style.opacity='1';b.style.background='rgba(200,57,43,0.4)';
+        erStep++;
+        if(erStep<erQs.length){setTimeout(erAsk,450);}else{setTimeout(erEmailStep,450);}
+      };
+      wrap.appendChild(b);
+    });
+    msgs.appendChild(wrap);msgs.scrollTop=msgs.scrollHeight;
+  }
+
+  function erAsk(){
+    var q=erQs[erStep];erMsg(q.text,false);
+    setTimeout(function(){erOpts(q.options,q.key);},300);
+  }
+
+  function erEmailStep(){
+    erMsg("Last one — drop your email and I'll send your personalised pick plus early access when we launch.",false);
+    setTimeout(function(){
+      var msgs=document.getElementById('er-messages');
+      var wrap=document.createElement('div');
+      wrap.style.cssText='display:flex;gap:6px;align-self:flex-start;width:92%;';
+      var inp=document.createElement('input');
+      inp.placeholder='your@email.com';
+      inp.style.cssText='flex:1;border:1px solid rgba(255,255,255,0.2);border-radius:2px;padding:7px 10px;font-size:12px;font-family:"DM Sans",sans-serif;background:rgba(255,255,255,0.06);color:#F5F0E8;outline:none;';
+      var btn=document.createElement('button');
+      btn.textContent='Go';
+      btn.style.cssText='background:#C8392B;color:#F5F0E8;border:none;border-radius:2px;padding:7px 14px;font-size:12px;font-family:"DM Sans",sans-serif;cursor:pointer;font-weight:600;';
+      btn.onclick=function(){
+        var email=inp.value.trim();
+        if(!email.includes('@')){inp.style.borderColor='#C8392B';return;}
+        erAnswers.email=email;erMsg(email,true);wrap.remove();erRecommend();
+      };
+      wrap.appendChild(inp);wrap.appendChild(btn);msgs.appendChild(wrap);msgs.scrollTop=msgs.scrollHeight;
+    },350);
+  }
+
+  async function erRecommend(){
+    var typingEl=document.createElement('div');
+    typingEl.style.cssText='align-self:flex-start;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.08);border-radius:0 2px 2px 2px;padding:10px 14px;display:flex;gap:5px;align-items:center;';
+    typingEl.innerHTML='<span style="width:6px;height:6px;border-radius:50%;background:#C8392B;animation:erPulse 1.2s infinite;display:inline-block;"></span><span style="width:6px;height:6px;border-radius:50%;background:#C8392B;animation:erPulse 1.2s 0.2s infinite;display:inline-block;"></span><span style="width:6px;height:6px;border-radius:50%;background:#C8392B;animation:erPulse 1.2s 0.4s infinite;display:inline-block;"></span>';
+    document.getElementById('er-messages').appendChild(typingEl);
+    document.getElementById('er-messages').scrollTop=99999;
+
+    var moodMap={'Something filling':'main','Light snack':'snack','Dessert':'dessert','Anything!':'any'};
+    var moodCategory=moodMap[erAnswers.mood]||'any';
+    var menuToUse=moodCategory==='any'?MENU:MENU.filter(function(i){return i.category===moodCategory;});
+
+    var prompt='You are the Eat Right menu assistant. Recommend exactly ONE menu item.\n\n'+
+      'RULES: Customer mood is "'+erAnswers.mood+'" — ONLY recommend from category: '+moodCategory+'\n'+
+      'Goal: '+erAnswers.goal+' | Dietary: '+erAnswers.dietary+'\n\n'+
+      'Available items:\n'+JSON.stringify(menuToUse)+'\n\n'+
+      'Reply in 2 sentences max. Start with item name. Mention the key macro for their goal.';
+
+    try{
+      var res=await fetch('https://api.openai.com/v1/chat/completions',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','Authorization':'Bearer '+OPENAI_KEY},
+        body:JSON.stringify({model:'gpt-4o-mini',max_tokens:100,messages:[{role:'user',content:prompt}]})
+      });
+      var data=await res.json();
+      typingEl.remove();
+      var rec=data.choices&&data.choices[0]?data.choices[0].message.content:fallbackRec();
+      erMsg(rec,false);
+    }catch(e){typingEl.remove();erMsg(fallbackRec(),false);}
+
+    setTimeout(function(){
+      erMsg("You're on the early access list — we'll be in touch before launch!",false);
+      erLog();
+    },500);
+  }
+
+  function fallbackRec(){
+    var mood=erAnswers.mood;
+    if(mood==='Dessert')return 'Protein Brownies — 99 cal, 12g protein. The guilt-free sweet fix.';
+    if(mood==='Light snack')return 'Cheesy Beef Potato Pockets — 296 cal, 24g protein. Crispy and satisfying.';
+    return 'The Big Stack — 300 cal, 42g protein. High protein without the calorie hit.';
+  }
+
+  function erLog(){
+    if(!SHEETS_URL||SHEETS_URL==='YOUR_APPS_SCRIPT_URL_HERE')return;
+    fetch(SHEETS_URL,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({timestamp:new Date().toISOString(),email:erAnswers.email||'',goal:erAnswers.goal||'',frequency:erAnswers.frequency||'',dietary:erAnswers.dietary||'',mood:erAnswers.mood||'',recommendation:'logged'})
+    }).catch(function(){});
+  }
+
+  window.erSend=function(){
+    var inp=document.getElementById('er-input');
+    var val=inp.value.trim();if(!val)return;
+    erMsg(val,true);inp.value='';
+    setTimeout(function(){erMsg('Use the options above — tap any button to continue!',false);},400);
+  };
+
+  var style=document.createElement('style');
+  style.textContent='@keyframes erPulse{0%,100%{opacity:0.3;transform:scale(0.8)}50%{opacity:1;transform:scale(1)}}@keyframes erBubblePulse{0%,100%{transform:scale(1);box-shadow:0 4px 20px rgba(200,57,43,0.4)}50%{transform:scale(1.08);box-shadow:0 6px 28px rgba(200,57,43,0.65)}}';
+  document.head.appendChild(style);
+})();
+</script>
+
 </body>
 </html>

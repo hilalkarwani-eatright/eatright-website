@@ -1984,10 +1984,9 @@
   }
 
   function erLog(){
-    if(!SHEETS_URL||SHEETS_URL==='YOUR_APPS_SCRIPT_URL_HERE')return;
-    fetch(SHEETS_URL,{
+    fetch(WORKER_URL,{
       method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({timestamp:new Date().toISOString(),email:erAnswers.email||'',goal:erAnswers.goal||'',frequency:erAnswers.frequency||'',dietary:erAnswers.dietary||'',mood:erAnswers.mood||'',recommendation:'logged'})
+      body:JSON.stringify({action:'log',email:erAnswers.email||'',goal:erAnswers.goal||'',frequency:erAnswers.frequency||'',dietary:erAnswers.dietary||'',mood:erAnswers.mood||'',recommendation:'logged'})
     }).catch(function(){});
   }
 

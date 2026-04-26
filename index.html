@@ -1984,7 +1984,7 @@
   }
 
   function erLog(){
-    if(!SHEETS_URL||SHEETS_URL===https://script.google.com/macros/s/AKfycbybzbXV-Ls_Lc1e8sX9-fMqki33biiEdl0-IPv8gWL-kV8ZHmQ1-4a_J2g5Mg4iz5aW/exec)return;
+    if(!SHEETS_URL||SHEETS_URL===https://script.google.com/macros/s/AKfycbybzbXV-Ls_Lc1e8sX9-fMqki33biiEdl0-IPv8gWL-kV8ZHmQ1-4a_J2g5Mg4iz5aW/exec')return;
     fetch(SHEETS_URL,{
       method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({timestamp:new Date().toISOString(),email:erAnswers.email||'',goal:erAnswers.goal||'',frequency:erAnswers.frequency||'',dietary:erAnswers.dietary||'',mood:erAnswers.mood||'',recommendation:'logged'})
